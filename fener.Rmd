@@ -1,0 +1,889 @@
+---
+title: "Fenerbahçe Beko EuroLeague Match Analyses"
+author: "<h2 class='author'>Andrija Radojević</h2>"
+subtitle: "<h3 class='subtitle'>Faculty of Mathematics</h3>"
+output:
+  html_document:
+    css: style.css
+---
+
+<h1 class="custom-title">Fenerbahçe Beko EuroLeague Match Statistics</h1>
+
+
+<div class="m1">Introduction</div>
+
+<div class="mini-discussion ">
+
+I am currently conducting a data analysis project whose primary objective is to develop value models and investigate correlations among key basketball performance parameters in modern sports. The findings will be presented through statistical methods I am familiar with, including visualizations, summary tables, and other relevant forms of interpretation. Basketball is my passion, and the club selected for this study holds particular personal significance, as I have watched many of the games that form part of the analysis. The scope of this project covers the period from 2002 to 2025 within Europe’s premier basketball competition, the EuroLeague. In the sections that follow, I will clearly specify which aspects of the data are being analyzed at each stage.
+
+
+</div>
+
+<div class="m1">Data description</div>
+
+<div class="mini-discussion ">
+
+The dataset employed in this project was obtained from the Kaggle platform, a widely recognized repository that provides access to high-quality, curated data resources. The dataset is composed primarily of character and integer data types, or numeric. In total, it comprises 630 observations, although several entries are missing due to game cancellations. These irregularities will be addressed in greater detail in the corresponding section of the analysis.
+
+The dataset includes the following variables: Date, Opposing_Team, IsHome, Points, Performance_Index_Rating, Two-point%, Three-point%, Free-throw%, Offensive_rebounds, Defensive_rebounds, Total_rebounds, Assists, Steals, Blocks, Turnovers.
+
+Additional variables may be engineered throughout the course of the analysis to enhance the depth and accuracy of the statistical evaluation.
+
+</div>
+
+<div class="m1">Data loading</div>
+
+
+```{r,warning=FALSE,message=FALSE}
+#loading dataset and reading first few lines
+
+library(dplyr)
+library(data.table)
+a<- fread("fenerbahce_beko.csv")
+
+head(a)
+
+
+```
+
+
+```{r}
+#basic descriptive statistics
+summary(a)
+
+```
+```{r,warning=FALSE,message=FALSE}
+library(ggplot2)
+
+#plot for outliers of points
+
+ggplot(a,aes(y=Points))+
+  geom_boxplot()+
+  labs(title="Outliers for points")
+
+```
+
+<div class="mini-discussion ">
+A boxplot was constructed to provide a preliminary overview of the distribution of potential outliers. Identifying these outliers at this stage is essential, as it will inform and guide subsequent statistical analyses.
+
+</div>
+
+```{r,warning=FALSE,message=FALSE}
+
+#sort of all rows and columns with NA
+
+p <- which(is.na(a), arr.ind = TRUE)
+p_sort <- p[order(p[, "row"]), ]
+p_sort
+```
+
+<div class="m1">
+
+Data cleaning
+
+</div>
+
+```{r,warning=FALSE,message=FALSE}
+
+#saving all postponed games in b
+
+a$Points <- as.numeric(a$Points)
+b<-a %>%
+  filter(is.na(Points)) %>%
+  select(Date,Opposing_Team,IsHome)
+b
+
+
+```
+
+<div class="mini-discussion ">
+
+These are the opponents and match dates that were postponed due to COVID-19. We will remove them from the dataset, as they are not relevant for further analysis. However, the 2022 match against Barcelona was actually played and concluded with a final score of 81–80 in favor of the Spanish team. Therefore, we will remove only the postponed games and retrieve the statistics for this particular match, which are currently missing in our dataset.
+
+</div>
+
+<div class="mini-discussion ">
+
+We may revisit these unplayed matches later, so they have been saved in the object b. For example, we could develop a model and make predictions based on team form and strength, estimating the probabilities of how these matches might have concluded.
+
+</div>
+
+```{r,warning=FALSE,message=FALSE}
+#cleaning  NA values with filter
+clean_data<- a %>%
+
+filter(!is.na(Points))
+clean_data
+
+```
+
+
+<div class="mini-discussion ">
+
+We will proceed to sort the first column in ascending order based on the match dates.
+
+</div>
+```{r,warning=FALSE,message=FALSE}
+library(tidyr)
+a<-clean_data
+kolona <- tibble(
+    Date = "4 Nov 2022 (Fri)",
+    Opposing_Team= "Barcelona",
+    IsHome = 0L,
+    Points = 80,
+    Performance_Index_Rating = 83,
+    `Two-point%` = "58.5%",
+    `Three-point%` ="25%",                              #manually adding a missing match vs Barselona
+    `Free-throw%`="94.4%",
+    Offensive_rebounds = 11,
+    Defensive_rebounds = 20,
+    Total_rebounds = 31,
+    Assists = 13,
+    Steals = 3,
+    Blocks = 5,
+    Turnovers = 11
+)
+a <- bind_rows(a, kolona)
+
+
+#separating column 'Date'
+
+a$Date <- substr(a$Date, 1, 11)
+library(tidyr)
+a <- a %>% 
+  separate(Date, into=c("Day", "Month", "Yearr"), sep=" ", extra="merge")
+
+
+meseci <- c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
+a$Month <- factor(a$Month, levels = meseci, ordered = TRUE)
+
+a$Yearr <- as.numeric(a$Yearr)
+a$Day <- as.numeric(a$Day)
+
+a <- a %>% arrange(Yearr, Month, Day)
+head(a)
+
+```
+
+<div class="mini-discussion ">
+We then sorted the dataset by the first column, and subsequently applied the separate function to decompose the original date variable into three new components. The month variable was converted into a factor in order to facilitate clearer organization and to ensure proper ascending chronological ordering.
+
+
+</div>
+
+```{r}
+
+#again manually adding all OppPoints through seasons
+
+vektor<-c(64,79,68,63,74,87,82,75,66,75,78,76,85,79,101,86,91,89,91,66,71,63,81,78,84,74,78,82,79,84,68,70,86,84,75,78,92,73,82,69,77,82,63,94,78,92,83,73,63,53,70,77,76,85,81,90,95,76,78,52,75,73,87,50,64,71,60,82,62,90,69,79,73,90,77,84,83,71,64,88,82,82,70,55,70,85,82,70,85,83,85,79,64,74,71,87,84,71,80,74,88,66,68,93,75,84,78,74,86,89,58,70,69,93,85,80,82,66,90,77,83,72,87,85,63,68,81,88,91,88,103,91,60,87,59,73,86,80,73,67,87,76,81,72,63,70,86,66,87,55,86,77,73,82,76,62,87,78,89,68,80,101,76,69,68,61,68,82,75,70,75,94,61,70,73,72,85,80,82,69,81,86,70,83,90,70,53,80,76,76,63,77,72,87,85,80,75,83,64,82,71,68,77,69,69,100,98,91,97,82,82,72,99,87,94,87,99,78,80,84,70,60,78,66,68,94,74,79,76,95,76,89,72,90,64,63,74,93,67,76,82,95,65,74,76,91,80,86,74,74,62,89,81,84,60,74,71,60,90,71,75,79,64,77,63,93,72,72,67,74,96,86,67,91,66,60,83,67,64,80,61,68,75,65,79,100,73,73,59,76,65,52,69,89,86,71,69,78,63,77,101,66,72,68,87,81,86,87,80,70,77,72,81,71,79,71,79,75,63,81,80,71,72,64,67,79,78,81,80,61,65,58,75,61,75,64,68,86,70,70,66,57,90,93,67,69,68,90,56,82,79,74,67,62,84,82,95,69,70,83,78,81,73,63,64,99,73,89,88,83,67,85,72,85,75,89,84,72,72,79,70,65,69,85,75,65,63,87,84,61,64,75,90,66,75,66,101,82,67,70,90,75,43,82,57,82,92,94,81,68,80,87,67,79,82,88,89,72,76,102,81,81,84,100,87,65,64,80,64,70,68,78,94,86,63,82,63,71,78,75,82,65,71,97,86,94,90,65,89,79,99,77,59,71,76,74,83,75,76,84,84,106,92,86,66,61,71,68,82,93,92,78,85,57,91,84,41,70,76,67,82,68,71,86,89,86,80,79,53,84,80,67,76,60,51,92,74,84,77,88,66,76,62,85,62,71,63,77,79,81,79,77,93,72,85,75,94,76,73,92,86,88,71,94,91,93,86,94,72,78,73,82,82,79,90,92,86,91,79,78,72,69,84,82,77,69,86,67,77,85,87,78,87,99,80,89,74,78,82,84,85,74,76,91,98,75,73,76,74,96,79,88,74,77,68,82,84,91,93,78,65,79,73,87,71,78,76,71,81,82,72,73,76,65,82,91,88,70,99,90,90,76,73,91,86,77,81,91,67,94,83,76,82,91,100,77,83,77,78,72,88,76,70)
+
+length(vektor)
+a<- a%>%
+  mutate(OppPoints=vektor)
+head(a)
+
+```
+
+
+```{r}
+#adding new variable WinorLose
+a<- a%>%
+  mutate(Result=ifelse(a$Points>a$OppPoints,"W", "L"))
+  head(a)
+  
+
+```
+
+
+
+<div class="mini-discussion ">
+I manually compiled the complete set of games along with the corresponding opponent point totals, as this information is essential for constructing a broader range of regression models and performance analyses. Based on the newly added OppPoints variable, I subsequently derived the Result column, thereby enriching the dataset with an additional explanatory feature. This enhanced structure provides a more comprehensive foundation for subsequent statistical modeling and analytical procedures.
+
+
+</div>
+
+<div class="m1">Exploratory Data Analysis</div>
+
+```{r}
+
+ss<-rbind(mean(a$Points),median(a$Points),sd(a$Points),min(a$Points),max(a$Points))
+
+row.names(ss)<-c("Mean_Points","Median_Points","Sd_Points","Min_Points","Max_Points")
+ss
+
+```
+```{r}
+#histogram of index ratings through seasons
+ggplot(a,aes(Performance_Index_Rating))+
+  geom_histogram(bins=15,color="white",fill="steelblue")
+
+
+```
+```{r}
+#Most frequently played opponents
+c<- a%>%
+  count(Opposing_Team,sort=TRUE)
+head(c)
+
+
+```
+```{r,warning=FALSE,message=FALSE}
+
+#outliers for total_rebounds
+ggplot(a,aes(y=Total_rebounds))+
+  geom_boxplot(fill="white",color="red")+
+  theme_minimal()
+  
+
+```
+```{r,warning=FALSE,message=FALSE}
+#scatterplot with variables Turnovers and OppPoints
+
+ggplot(a, aes(y = OppPoints, x = Turnovers)) +
+  geom_point(aes( color = "red")) +
+  geom_smooth(se = FALSE) +
+  theme_minimal()
+  
+
+```
+
+```{r}
+
+#calculating outliers for turnovers
+
+turnovers_clean <- a$Turnovers[!is.na(a$Turnovers)]
+
+q1 <- quantile(turnovers_clean, 0.25)
+q3 <- quantile(turnovers_clean, 0.75)
+IQR <- q3 - q1
+
+outliers <- turnovers_clean[
+  turnovers_clean < q1 - 1.5*IQR | turnovers_clean > q3 + 1.5*IQR]
+outliers
+
+
+```
+
+```{r}
+
+#win percentage based on location of game
+win<-a%>%
+  group_by(IsHome)%>%
+  summarise(
+    Wins=sum(Result=="W",na.rm=TRUE),
+    Losses=sum(Result=="L",na.rm=TRUE),
+    win_Percentage=round(Wins/(Wins+Losses)*100,1)
+    
+  )
+win
+
+
+```
+
+
+```{r}
+#piechart of rebounds
+
+rebounds<-data.frame(
+Type<-c("Offensive","Defensive"),
+Value<-c(sum(a$Offensive_rebounds,na.rm=TRUE),sum(a$Defensive_rebounds,na.rm=TRUE))
+)
+
+ggplot(rebounds,aes(x="",y=Value,fill=Type))+
+  geom_col(width=1)+
+  coord_polar(theta="y")+
+  theme_void()
+  
+
+```
+
+```{r}
+#converting to character
+
+a$IsHome <- ifelse(a$IsHome == "1", "Home", "Away")
+a<-a%>%
+  rename(Location=IsHome)
+head(a)
+
+ggplot(a,aes(x=Points,fill=Location))+
+  geom_density(alpha=0.6)+
+  labs(title="HomevsAway")
+
+```
+<div class="m1">Main Statistical Methods</div>
+
+
+<div class="mini-discussion ">
+
+We now proceed to the central part of the project, which focuses on the application of statistical methods, including hypothesis testing, regression modelling, parameter estimation, and several additional analytical procedures relevant to this dataset.
+
+
+</div>
+
+
+```{r}
+
+# converting to numeric
+a <- a %>%
+  mutate(across(c(`Three-point%`, `Two-point%`, `Free-throw%`),
+                ~ as.numeric(gsub("%", "", .))))
+
+
+
+
+```
+<div class="m5">Correlations</div>
+
+```{r}
+
+cor(a$Offensive_rebounds,a$Points,use="complete.obs")
+cor(a$Turnovers,a$OppPoints,use="complete.obs")
+cor(a$Assists,a$Points,use="complete.obs")
+ishome <- ifelse(a$Location == "Home", 1, 0)                         #corelations between some variables
+
+cor(ishome,a$`Three-point%`,use="complete.obs")
+
+
+
+
+```
+```{r}
+a<-a%>%
+  mutate(
+    '+/-'=Points - OppPoints
+    
+  )                                                                #adding new variable +/-
+
+cor(ishome,a$`+/-`,use="complete.obs")
+
+```
+<div class="m5">Statistical tests</div>
+
+```{r}
+
+t.test(a$Points~a$Location,data=a)
+
+```
+```{r}
+t.test(a$OppPoints~a$Location,alternative="greater")
+
+
+```
+```{r}
+
+t.test(a$Total_rebounds~a$Location,alternative="less")
+
+
+
+```
+
+```{r}
+chisq.test(a$Location, a$Result)
+
+
+
+now <- a %>% filter(Opposing_Team
+ %in% c("Real Madrid","Barcelona","Olympiacos","CSKA"))
+fisher.test(now$Opposing_Team                                                 #working with categorical variables
+, now$Result)
+
+```
+
+<div class="m5">Linear Regression model</div>
+
+
+```{r}
+#Model: Plus/minus depends on Points, Location, Free-throw percentage, and Total rebounds 
+a$Location <- factor(a$Location)
+
+model <- lm(`+/-` ~ Points + Location + `Free-throw%` + Total_rebounds, data = a)
+summary(model)
+
+cat("R-squared:", summary(model)$r.squared, "\n")
+cat("Adjusted R-squared:", summary(model)$adj.r.squared, "\n")
+
+
+rmse <- sqrt(mean(resid(model)^2))          #Root Mean Squared Error
+cat("RMSE:", rmse, "\n")
+
+shapiro.test(resid(model))             #data is normally distributed or not
+
+
+```
+
+
+```{r}
+#Homoscedasticity
+
+plot(model$fitted.values, resid(model),
+     xlab="Predicted +/-",
+     ylab="Residuals",
+     main="Residuals vs Predicted")
+abline(h=0, col="red")
+
+
+
+```
+```{r,warning=FALSE,message=FALSE}
+
+
+library(car)
+#multicollinearity
+vif(model)
+
+
+```
+```{r}
+
+plot(model, which=5)
+
+
+#for outliers
+
+```
+```{r}
+
+outlier_index <- c(477, 213, 524)
+model_no_outlier <- lm(`+/-` ~ Points + Location + `Free-throw%` + Total_rebounds,
+                       data = a[-outlier_index, ])
+summary(model_no_outlier)
+
+
+#model without outliers
+
+```
+```{r}
+
+plot(model$fitted.values, a$`+/-`,
+     xlab="Predicted values",
+     ylab="Actual values",
+     main="Predicted vs Actual Values")
+abline(a=0, b=1, col="blue", lwd=2)  
+
+
+
+```
+<div class="m5">Logistic regression model</div>
+
+
+```{r}
+#logistic regression model that analyzes win
+isWin<-ifelse(a$Result=="W",1,0)
+model2<-glm(isWin~ a$Location+ a$Assists+ a$OppPoints, family = "binomial")
+summary(model2)
+
+
+
+```
+```{r}
+#how much more (or less) likely an event is to occur in one group compared to another
+odds_ratios <- exp(coef(model2))
+odds_ratios
+
+```
+```{r}
+
+#win predictor
+new <- data.frame(Location = a$Location,
+                       Assists = a$Assists,
+                       OppPoints = a$OppPoints,Result=a$Result
+                )
+
+new$pred_win_prob <- predict(model2, newdata = new, type = "response")
+head(new)
+
+
+
+```
+
+
+```{r}
+#we can see how much predictor is accurate 
+new$pred_win_binary <- ifelse(new$pred_win_prob >= 0.5, 1, 0)
+
+table(Predicted = new$pred_win_binary, Actual = new$Result)
+
+
+
+
+```
+
+
+```{r}
+
+accuracy <- (197 + 284) / (197 + 65 + 77 + 284)
+accuracy
+
+
+
+```
+
+<div class="m5">Scatterplots</div>
+
+
+```{r,warning=FALSE,message=FALSE}
+#dependence of  two-point percentage on total points
+ggplot(a,aes(`Two-point%`,Points))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+
+```
+
+```{r,warning=FALSE,message=FALSE}
+#dependence of offensive rebounds on total points
+ggplot(a,aes(Offensive_rebounds,Points))+
+  geom_point()+
+  geom_smooth(theme="lm")
+
+
+```
+
+```{r}
+
+#corelation between assists and turnovers in game
+plot(a$Assists, a$Turnovers,
+     xlab="Assists",
+     ylab="Turnovers",
+     main="Assists vs Turnovers",
+     pch=19, col="blue")
+abline(lm(Turnovers ~ Assists, data=a), col="red", lwd=2)
+
+
+
+```
+<div class="m5">Anova tests</div>
+
+```{r,warning=FALSE,message=FALSE}
+
+a$Coach<-NA
+
+a$Coach[1:19]<-"Mevlut Ongoren"
+a$Coach[20:39]<-"Mevlut Ongoren"
+a$Coach[40:100]<-"Ataman"
+a$Coach[101]<-"Ataman"
+a$Coach[102:116]<-"Ors"
+a$Coach[116]<-""
+a$Coach[116:163]<-""
+a$Coach[116:163]<-"Tanjevic"
+a$Coach[164:178]<-"Spahija"
+a$Coach[179]<-"Spahija"
+a$Coach[180:194]<-"Spahija"
+a$Coach[195]<-"Spahija"
+a$Coach[196:219]<-"Pianigiani"
+a$Coach[220:435]<-"Obradovic"                          #first,manually added coaches for all years
+a$Coach[436]<-"Obradovic"
+a$Coach[437:473]<-"Kokoskov"
+a$Coach[474:505]<-"Djordjevic"
+a$Coach[505]<-""
+a$Coach[505:543]<-"Itudis"
+a$Coach[544:623]<-"Jasikevicius"
+
+head(a)
+
+```
+
+```{r}
+library(dplyr)
+win_percentage<-a%>%
+  group_by(Coach)%>%
+  summarise(
+    Games=n(),
+    Wins=sum(Result=="W",na.rm=TRUE),
+    Win_Percentage=round(Wins/Games*100,2)                      #win percentage for different coaches
+    
+  )
+win_percentage
+
+
+```
+
+```{r}
+#anova test with oppositing team points
+sub<-a%>%
+  filter(Coach %in% c("Obradovic","Djordjevic","Kokoskov","Jasikevicius"))
+anova_result<-aov(OppPoints~Coach,data=sub)
+summary(anova_result)
+
+
+```
+
+```{r}
+#to determine which specific groups differ from each other
+TukeyHSD(anova_result)
+
+
+```
+```{r}
+
+#boxplot with points
+
+ggplot(sub, aes(x = Coach, y = Points)) +
+  geom_boxplot() +
+  coord_flip()
+
+
+
+
+
+```
+
+```{r}
+#anova test for assists
+sub2<-a%>%
+  filter(Coach %in% c("Obradovic","Djordjevic","Kokoskov","Jasikevicius"))
+anova_result<-aov(Assists~Coach,data=sub2)
+summary(anova_result)
+
+
+```
+```{r}
+#tukey test
+TukeyHSD(anova_result)
+
+```
+
+```{r}
+
+#boxplot with assists
+
+ggplot(sub, aes(x = Coach, y = Assists)) +
+  geom_boxplot() +
+  coord_flip()
+
+
+
+
+```
+<div class="m1">Visualisation</div>
+
+```{r}
+
+ggplot(a, aes(x = Location, y = Points, fill = Result)) +
+  geom_boxplot() +
+  labs(title = "Distribution of points by location and match outcome",
+       y = "Points",
+       x = "Location") +
+  theme_minimal()
+
+
+```
+```{r,warning=FALSE,message=FALSE}
+
+library(reshape2)
+corr_mat <- cor(a[,c("Points","Assists","Turnovers","Offensive_rebounds","+/-")], use="complete.obs")
+melted <- melt(corr_mat)
+ggplot(melted, aes(Var1, Var2, fill = value)) +
+  geom_tile() +
+  geom_text(aes(label=round(value,2)), color="white") +
+  theme_minimal() +
+  labs(title="Correlation matrix")
+
+
+
+
+
+
+```
+```{r,warning=FALSE,message=FALSE}
+
+ggplot(a, aes(x = Yearr, y = OppPoints, color = Location)) +
+  geom_line() +
+  geom_smooth(method="loess") +
+  labs(title="Trend of points through the season", x="Yearr", y="OppPoints")
+
+
+
+```
+
+
+```{r}
+
+ggplot(a, aes(x = Points, y = Assists, color = Location, size = Offensive_rebounds)) +
+  geom_point() +
+  labs(title = "Points vs. Assists by Location and Rebounds")
+
+
+```
+<div class="m1"> Interpretation of results</div>
+
+
+This section presents the analysis results, focusing on key patterns and insights revealed by the data. The findings highlight relationships between different performance metrics and their impact on game outcomes.
+
+<div class="a1">Correlation analysis</div>
+
+<div class="t8 ">
+<p>Regarding correlation:</p> <ul> - We observe that the correlation between offensive rebounds and points scored is significantly small, as well as between turnovers and points conceded. 
+- There is a moderate positive correlation between assists and total points. 
+- The correlation between three-point percentage and game location is very weak.
+- Slightly stronger, but still weak, is the correlation between +/- and game location. </ul>
+
+ We conclude that assists are a fairly important parameter for points scored, which implies the significance of offensive creation, in terms of structured plays rather than one-on-one actions. Turnovers are not strongly related to points conceded, which is interesting. This likely means that turnovers did not result in fast breaks or easy points, but rather that the team was able to quickly return to a defensive stance after a mistake.
+</ul>
+</div>
+
+<div class="a2">Tests</div>
+
+<div class="t9"> We proceeded with statistical testing, specifically employing the t-test, which provides various outputs, including the confidence interval, as well as the chi-square test, which assesses independence between variables. As is well known, the key component of the t-test is the p-value, which determines whether we reject or fail to reject the null hypothesis. We examined the following:<ul>
+
+- the difference in points scored at home versus away (with approximately 4 fewer points scored on average in away games).
+It can be said that this result is quite expected, as most EuroLeague teams tend to perform better at home, especially when the crowd is more intense, which is often the case with Turkish teams whose fans provide strong support to the players.
+The p-value here is below 0.05, indicating a statistically significant difference.
+ 
+- The next hypothesis tested was the null hypothesis stating that opponents score more points when Fener plays at home than when playing away.
+
+- The p-value obtained was extremely small, leading us to reject the null hypothesis and conclude that a significant difference exists between the groups.
+Similarly, we observe an expected scenario in which opponents find it more difficult to score when playing in Fener’s home arena. Contributing factors may include crowd influence, as well as additional external elements—for instance, long travel distances and potentially demanding flights to Turkey from other European countries.
+
+- Next, we examined total rebounds and game location, testing the null hypothesis that there are more rebounds in away games than at home.
+
+- The p-value is again below 0.05, so we reject the null hypothesis and conclude that the difference is statistically significant.
+
+- Over the past two decades, the team’s average rebounding has remained similar, which indicates that although player athleticism varies from year to year, at an overall level this is not particularly significant, since rebounding is influenced not only by physical ability but also by positioning and anticipation.
+
+
+Chisq.test/Fisher:
+
+- We tested the independence between game location and match outcome, and obtained a low p-value, indicating that these two variables are not independent.
+The location of the game has a considerable impact on the result.
+
+- The high p-value indicates that we do not have sufficient evidence to conclude that match outcome depends on the opponent within this sample.
+However, on a larger sample, it does not matter which specific team is played against, as players approach their performance professionally.
+
+</ul>
+</div>
+<div class="a3">Linear model</div>
+
+<div class="t10"> Linear model for +/-:<ul>
+
+- We selected the dependent variable +/- and examined how, and whether, the independent variables—points, game location, free throws, and rebounds—affect it.
+
+- We observe that points, rebounds, and game location are statistically significant, whereas free throws practically have no effect on +/-.
+- Points are the strongest predictor, which is logical since +/- represents the difference in final points and is therefore closely related.
+
+- The coefficient of determination R² is approximately 0.52, indicating that the model explains about 52% of the total variability in the point difference, while the adjusted R² (≈ 0.52) confirms that the inclusion of additional predictors does not overestimate the explanation. The Root Mean Squared Error (RMSE ≈ 9.52) shows that the average prediction of +/- differs from the actual result by about 9.5 points, representing a solid level of accuracy considering the variability inherent in sports games.
+
+- We used the Shapiro test to assess the normality of the residuals. 
+
+- The next aspect is homoscedasticity. We observe that the residuals are distributed roughly evenly around zero, suggesting that the homoscedasticity assumption is not severely violated. There is a slight change in variance at extreme predicted values, but it does not compromise the interpretation of the model.
+-We checked for multicollinearity using the VIF function and observed that the values are approximately equal to one.
+
+
+- In the next plot, we examined Residuals vs. Leverage and identified some outliers.
+
+- We then removed these values and rebuilt the model to see if there were any significant differences.
+The coefficients remained similar, leading us to conclude that removing the outliers resulted in a slightly more stable model, but the original model is very similar and exhibits comparable stability.
+
+
+- Next, we created a scatterplot of Predicted vs. Actual values.
+
+- We can observe that most points lie close to the line, indicating that the model generally predicts +/- well. Additionally, there is no obvious pattern of curvature, suggesting that the model is indeed appropriate.</ul>
+</div>
+
+<div class="a4">Logistic Regression Model</div>
+
+<div class="t11">
+<p>The next step is the logistic regression model:</p>
+
+<ul>- We aim to model wins in relation to the variables: game location, assists, and opponent points.
+
+- We observe that opponent points and assists are statistically highly significant, whereas game location is not particularly significant. In the previous linear regression, we saw that +/- depends on location, but here in the logistic model, the outcome does not depend on location. Why does this make sense? It is logical because we are dealing with a binary variable, and the model only considers whether a win occurred, not by how much. In the linear regression, we analyzed the magnitude of the point difference, which reflects how large or small a win is. Here, when other predictors such as assists and opponent points are included, location alone is no longer as significant relative to them.
+
+
+- The odds ratio (OR) indicates how the odds of an event (in this case, a win) change when a predictor increases by one unit, holding all other factors constant.
+
+- We conclude that playing at home increases the odds of winning by approximately 47%, while each additional assist increases the odds by about 25%. On the other hand, each additional opponent point decreases the odds by roughly 13%.
+
+- Next, we created a predictor based on this model, which provides the probability of a win. We then tested it on several examples using the head function. Overall, we compiled the results into a table: when the model predicted a loss, there were 197 losses and 65 wins; when it predicted a win, there were 284 wins and 77 losses. Using the accuracy metric, we observe that the model achieves an accuracy of 77%.</ul>
+</div>
+
+<div class="a5">Scatterplots</div>
+
+<div class="t12"><ul>
+
+
+
+- In the first plot, we observe a positive trend: when a team has a higher two-point shooting percentage, they generally score more points. The two-point shot is a very important aspect in basketball and is the most frequently attempted shot, taken primarily within the 6.75-meter line. Although in modern basketball there has been a growing emphasis on three-point shots recently. Additionally, the plot shows considerable scatter of points, indicating that the relationship is not perfect.
+
+
+- The LOESS-smoothed curve indicates no clear or strong relationship between offensive rebounds and total points scored. Across the central range of the data (5–15 rebounds), the trend is essentially flat, suggesting that offensive rebounding does not systematically predict scoring output. The wide confidence band at higher values reflects substantial uncertainty due to sparse observations.
+
+
+- A similar pattern is observed with assists versus steals; the line is almost horizontal, showing only a minimal decline at the end.
+</ul></div>
+
+<div class="a6">Anova test</div>
+
+<div class="t13"><ul>
+
+
+- I first added a new column to the dataset, which could be meaningful in future analyses, as the coach plays an important role in basketball.
+
+- I calculated the win percentages for all coaches, and here is what we have:
+
+- The highest win percentage belongs to Željko Obradović, one of the most successful coaches in European basketball history, with 68%.
+
+- Šarūnas Jasikevičius follows with a win percentage of approximately 63%, indicating that he adopted many aspects of Željko’s coaching style and adapted and improved them for the modern game.
+
+- Ongoren and Spahija are very similar, almost sharing third place, although Spahija is slightly lower by 0.2%.
+
+- Kokoskov and Itudis are also similar, with around 54%, close to third place, and both are highly respected coaches in Europe.
+
+
+- We conducted an ANOVA test and can conclude that the team did not concede the same number of points under all coaches. At least one coach differs significantly from the others. I highlighted the most interesting coaches to compare points conceded. The largest differences are between Kokoskov and Jasikevičius, and Đorđević and Jasikevičius. On average, Šaras concedes approximately 6 more points than these two, even though he has only been coaching for 3 to 4 years after them, which speaks volumes about how basketball has modernized. Under Jasikevičius, Fener has improved significantly and won one title, indicating that he raised the pace of scoring and the overall tempo of the game, likely resulting in very few possessions lasting the full 24 seconds.
+
+- Another notable difference is between Jasikevičius and Obradović, which is particularly interesting since both have won a title with Fener.
+
+
+- Next, we created a boxplot of points by coach and observed a few outliers.
+
+- Then, I conducted another ANOVA test for these coaches, this time with assists as the variable, and no significant differences were found. This indicates that the team generally executes a similar number of final passes. However, in recent years, while total points have increased and assists have remained similar, this suggests a shift toward more one-on-one play. This trend is linked to the recruitment of a large number of players from the NBA, mostly Americans, who have been trained in this aspect of basketball from a young age and continue to refine it intensively.
+
+
+- Then, we created another boxplot for assists, where we observe only one outlier, with over 30 assists recorded under Šaras.
+</ul>
+</div>
+
+<div class="m1">Discussion</div>
+
+<div class="mini-discussion">
+■  The analyses demonstrate that points scored and assists are the most influential factors for both point differential (+/-) and match outcomes. While home-court advantage affects scoring, its significance diminishes when other variables such as assists and opponent points are considered. ■  Rebounds and turnovers contribute moderately, highlighting the role of defensive positioning and game recovery. Overall, the models provide reliable predictions and offer valuable insights into team performance and strategic decision-making in EuroLeague basketball.
+</div>
+
+<div class="m1">Limitations</div>
+
+<div class="mini-discussion">
+■  Although the analysis provides valuable insights, several limitations should be taken into account:<ul>
+
+- Correlation analysis does not imply causation
+
+
+- Lack of control variables
+
+
+- Limited range of available metrics
+
+
+- Data format does not capture contextual information
+
+
+- Coaching comparisons may be influenced by differences in playing style and league trends across different eras
+
+
+- No temporal dynamics included in the analysis
+</ul>
+</div>
+
+
+<div class="m1">Conclusion</div>
+
+<div class="mini-discussion">
+■  The analysis of Fenerbahçe’s performance reveals several clear patterns in the statistical indicators. The correlation structure shows that most basic variables exhibit very weak relationships with one another, suggesting that game outcomes cannot be explained through simple linear associations. Offensive rebounds demonstrate minimal connection with total points scored, while the relationship between turnovers and points conceded is similarly weak. This indicates that second-chance opportunities and turnovers are not among the primary statistical predictors of game results within the available dataset.
+
+■  A moderate positive relationship between assists and points scored suggests that better ball movement may contribute to improved offensive efficiency, although this relationship is not strong enough to be considered decisive. Game location shows a very weak effect on three-point shooting percentage and overall plus/minus, indicating that the team’s performance remains relatively stable regardless of whether the game is played at home or away.
+
+■  Overall, the results indicate that no single statistical category alone is sufficient to fully explain the outcome of games. However, multiple metrics considered together can provide valuable insights into team play patterns. Within this analysis, certain relationships, such as the connection between assists and points scored, can highlight offensive tendencies and efficiency, while other statistics complement the picture by offering additional information about playing style. Although the basic available metrics do not point to a single dominant factor, they allow for the identification of meaningful trends and provide a solid foundation for deeper analytical understanding of team performance.
+</div>
+
+
+
