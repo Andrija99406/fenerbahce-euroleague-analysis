@@ -1,28 +1,43 @@
-Fenerbahçe Beko EuroLeague Match Analysis (2002–2025)
+Fenerbahçe Beko EuroLeague Match Analysis
 Overview
 
-Analysis of Fenerbahçe Beko EuroLeague performance using game-level statistics, focusing on performance drivers and predictive modeling of match outcomes.
+This project analyzes Fenerbahçe Beko’s performance in the EuroLeague using match-level statistical data from 2002 to 2025.
+
+The focus is on identifying key performance drivers and evaluating the stability of relationships between game statistics and match outcomes using statistical modeling approaches.
 
 Dataset
-600+ EuroLeague games (2002–2025)
-Match statistics: points, rebounds, assists, turnovers, shooting percentages
-Opponent points and game location
-Engineered variables: +/- and win/loss
+
+Match-level EuroLeague data including:
+
+Points scored and opponent points
+Home / away indicator
+Rebounds (offensive, defensive, total)
+Assists, turnovers, steals, blocks
+Shooting percentages (2PT, 3PT, FT)
+Performance Index Rating (PIR)
+Derived variables (+/- and win/loss outcome)
+Coaching eras (manually reconstructed)
 Methods
-Correlation analysis
-Hypothesis testing (t-test, chi-square, Fisher)
-Linear regression (+/- prediction)
-Logistic regression (win probability)
-ANOVA (coaching effects)
-Model diagnostics and outlier analysis
+Linear regression modeling of point differential (+/-)
+Logistic regression for win probability prediction
+Correlation analysis of performance metrics
+Hypothesis testing (t-test, chi-square, Fisher test)
+ANOVA for coaching-era comparison
+Outlier detection and model diagnostics
 Key Findings
-Assists are the strongest consistent offensive predictor
-Home advantage is significant but weakens in multivariate models
-Coaching eras show significant differences in defensive performance
-Match outcomes depend mainly on offensive output and opponent strength
+Assists are consistently a strong positive predictor of offensive performance
+Home advantage is significant in simple models but less stable in multivariate settings
+Coaching changes significantly affect defensive performance (points conceded)
+Turnovers and rebounds show weaker direct predictive power than expected
+Match outcomes are primarily driven by offensive output and opponent strength
 Models
-Linear regression: R² ≈ 0.52 (point differential)
-Logistic regression: ~77% accuracy (win prediction)
+Linear regression for point differential (R² ≈ 0.52)
+Logistic regression for win probability (accuracy ≈ 77%)
+Model diagnostics confirm stable and interpretable results
+Final Model
+
+Combination of linear and logistic regression models provides a robust framework for explaining and predicting team performance across different seasons and coaching eras.
+
 Tools
 
-R, ggplot2, dplyr, data.table, car
+R, dplyr, ggplot2, data.table, tidyr, car, stats
